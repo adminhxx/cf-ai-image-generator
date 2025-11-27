@@ -42,3 +42,7 @@ wrangler tail
 - [`@cf/black-forest-labs/flux-2-dev`](https://developers.cloudflare.com/workers-ai/models/flux-2-dev/) - Image generation
 
 Llama LLM requests are routed through Cloudflare AI Gateway (`ai-gateway-image-generator`) for analytics, caching, and rate limiting.
+
+# Disclaimer
+
+For educational purposes only.
