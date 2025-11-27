@@ -43,6 +43,6 @@ wrangler tail
 
 Llama LLM requests are routed through Cloudflare AI Gateway (`ai-gateway-image-generator`) for analytics, caching, and rate limiting.
 
-# Disclaimer
+# Disclaimer
 
 For educational purposes only.
