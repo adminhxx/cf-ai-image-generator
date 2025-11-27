@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>FLUX-2 Image Generator</title>
+		<meta name="description" content="Professional AI image generation powered by FLUX-2 and Cloudflare Workers AI" />
+		<style>
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+
+			:root {
+				--bg-primary: #0a0a0a;
+				--bg-secondary: #1a1a1a;
+				--bg-tertiary: #2a2a2a;
+				--border-primary: #333;
+				--border-secondary: #555;
+				--text-primary: #fff;
+				--text-secondary: #aaa;
+				--text-tertiary: #666;
+				--accent: #fff;
+				--error: #ff4444;
+				--success: #44ff44;
+				--warning: #ffaa44;
+				--spacing-xs: 8px;
+				--spacing-sm: 12px;
+				--spacing-md: 16px;
+				--spacing-lg: 24px;
+				--spacing-xl: 32px;
+				--spacing-2xl: 48px;
+				--radius-sm: 6px;
+				--radius-md: 8px;
+			}
+
+			body {
+				font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+				background: var(--bg-primary);
+				color: var(--text-primary);
+				line-height: 1.6;
+				min-height: 100vh;
+				display: flex;
+				flex-direction: column;
+				-webkit-font-smoothing: antialiased;
+				-moz-osx-font-smoothing: grayscale;
+			}
+
+			.container {
+				width: 100%;
+				max-width: 1000px;
+				margin: 0 auto;
+				padding: clamp(20px, 5vw, 40px) clamp(16px, 4vw, 24px);
+				flex: 1;
+			}
+
+			header {
+				margin-bottom: clamp(32px, 6vw, 48px);
+				text-align: center;
+			}
+
+			h1 {
+				font-size: clamp(24px, 5vw, 36px);
+				font-weight: 700;
+				margin-bottom: var(--spacing-sm);
+				letter-spacing: -0.02em;
+				line-height: 1.2;
+			}
+
+			.subtitle {
+				font-size: clamp(14px, 2.5vw, 16px);
+				color: var(--text-secondary);
+				font-weight: 400;
+				max-width: 600px;
+				margin: 0 auto;
+			}
+
+			.form-section {
+				background: var(--bg-secondary);
+				border: 1px solid var(--border-primary);
+				border-radius: var(--radius-md);
+				padding: clamp(20px, 4vw, 32px);
+				margin-bottom: var(--spacing-lg);
+			}
+
+			.input-group {
+				margin-bottom: var(--spacing-lg);
+			}
+
+			.input-group:last-child {
+				margin-bottom: 0;
+			}
+
+			label {
+				display: block;
+				margin-bottom: var(--spacing-sm);
+				font-size: clamp(12px, 2vw, 14px);
+				font-weight: 600;
+				color: var(--text-primary);
+				text-transform: uppercase;
+				letter-spacing: 0.05em;
+			}
+
+			textarea {
+				width: 100%;
+				padding: var(--spacing-md);
+				background: var(--bg-primary);
+				border: 1px solid var(--border-primary);
+				border-radius: var(--radius-sm);
+				color: var(--text-primary);
+				font-size: clamp(14px, 2.5vw, 15px);
+				font-family: inherit;
+				resize: vertical;
+				min-height: 120px;
+				transition: border-color 0.2s ease;
+				line-height: 1.5;
+			}
+
+			textarea:focus {
+				outline: none;
+				border-color: var(--border-secondary);
+			}
+
+			textarea::placeholder {
+				color: var(--text-tertiary);
+			}
+
+			.checkbox-label {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				cursor: pointer;
+				text-transform: none;
+				letter-spacing: normal;
+				font-weight: 500;
+				font-size: clamp(14px, 2.5vw, 15px);
+				margin-bottom: 0;
+				padding: var(--spacing-sm);
+				background: var(--bg-primary);
+				border-radius: var(--radius-sm);
+				transition: background 0.2s ease;
+			}
+
+			.checkbox-label:hover {
+				background: var(--bg-tertiary);
+			}
+
+			.checkbox-label input[type='checkbox'] {
+				width: 18px;
+				height: 18px;
+				cursor: pointer;
+				accent-color: var(--accent);
+				flex-shrink: 0;
+			}
+
+			.checkbox-label span {
+				user-select: none;
+				flex: 1;
+			}
+
+			.file-input-section {
+				margin-top: var(--spacing-xs);
+			}
+
+			.file-input-grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+				gap: var(--spacing-sm);
+			}
+
+			@media (min-width: 640px) {
+				.file-input-grid {
+					grid-template-columns: repeat(4, 1fr);
+				}
+			}
+
+			.file-input-box {
+				position: relative;
+				aspect-ratio: 1;
+				background: var(--bg-primary);
+				border: 2px dashed var(--border-primary);
+				border-radius: var(--radius-sm);
+				cursor: pointer;
+				overflow: hidden;
+				transition: all 0.2s ease;
+			}
+
+			.file-input-box:hover {
+				border-color: var(--border-secondary);
+				background: var(--bg-tertiary);
+			}
+
+			.file-input-box.has-image {
+				border-style: solid;
+			}
+
+			.file-input-box input {
+				display: none;
+			}
+
+			.file-input-placeholder {
+				position: absolute;
+				inset: 0;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				font-size: clamp(11px, 2vw, 13px);
+				color: var(--text-tertiary);
+				gap: var(--spacing-xs);
+				padding: var(--spacing-xs);
+				text-align: center;
+			}
+
+			.file-input-placeholder svg {
+				width: clamp(20px, 4vw, 24px);
+				height: clamp(20px, 4vw, 24px);
+				opacity: 0.5;
+			}
+
+			.file-input-box img {
+				width: 100%;
+				height: 100%;
+				object-fit: cover;
+			}
+
+			.file-input-remove {
+				position: absolute;
+				top: var(--spacing-xs);
+				right: var(--spacing-xs);
+				background: rgba(0, 0, 0, 0.8);
+				backdrop-filter: blur(8px);
+				border: 1px solid var(--border-primary);
+				color: var(--text-primary);
+				width: 28px;
+				height: 28px;
+				border-radius: var(--radius-sm);
+				cursor: pointer;
+				font-size: 18px;
+				line-height: 1;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				transition: all 0.2s ease;
+				z-index: 1;
+			}
+
+			.file-input-remove:hover {
+				background: rgba(255, 68, 68, 0.2);
+				border-color: var(--error);
+				color: var(--error);
+			}
+
+			.file-hint {
+				margin-top: var(--spacing-sm);
+				font-size: clamp(11px, 2vw, 13px);
+				color: var(--text-tertiary);
+				line-height: 1.5;
+			}
+
+			.button-group {
+				display: flex;
+				flex-direction: column;
+				gap: var(--spacing-sm);
+				margin-top: var(--spacing-lg);
+			}
+
+			@media (min-width: 640px) {
+				.button-group {
+					flex-direction: row;
+				}
+			}
+
+			button {
+				background: var(--accent);
+				color: var(--bg-primary);
+				border: none;
+				padding: clamp(12px, 2vw, 14px) clamp(20px, 4vw, 28px);
+				border-radius: var(--radius-sm);
+				font-size: clamp(14px, 2.5vw, 15px);
+				font-weight: 600;
+				cursor: pointer;
+				transition: all 0.2s ease;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				gap: var(--spacing-xs);
+				font-family: inherit;
+				white-space: nowrap;
+			}
+
+			button:hover:not(:disabled) {
+				transform: translateY(-1px);
+				box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1);
+			}
+
+			button:active:not(:disabled) {
+				transform: translateY(0);
+			}
+
+			button:disabled {
+				opacity: 0.5;
+				cursor: not-allowed;
+				transform: none;
+			}
+
+			button.secondary {
+				background: transparent;
+				color: var(--text-secondary);
+				border: 1px solid var(--border-primary);
+				flex: 0 0 auto;
+			}
+
+			@media (min-width: 640px) {
+				button.secondary {
+					min-width: 120px;
+				}
+			}
+
+			button.secondary:hover:not(:disabled) {
+				background: var(--bg-secondary);
+				color: var(--text-primary);
+			}
+
+			.spinner {
+				width: 16px;
+				height: 16px;
+				border: 2px solid var(--bg-primary);
+				border-top-color: transparent;
+				border-radius: 50%;
+				animation: spin 0.6s linear infinite;
+			}
+
+			@keyframes spin {
+				to {
+					transform: rotate(360deg);
+				}
+			}
+
+			.result-section {
+				margin-top: var(--spacing-xl);
+			}
+
+			.result-image-wrapper {
+				background: var(--bg-secondary);
+				border: 1px solid var(--border-primary);
+				border-radius: var(--radius-md);
+				padding: var(--spacing-md);
+				margin-bottom: var(--spacing-md);
+			}
+
+			.result-image {
+				width: 100%;
+				height: auto;
+				border-radius: var(--radius-sm);
+				display: block;
+			}
+
+			.result-actions {
+				display: flex;
+				flex-direction: column;
+				gap: var(--spacing-xs);
+				margin-top: var(--spacing-sm);
+			}
+
+			@media (min-width: 640px) {
+				.result-actions {
+					flex-direction: row;
+				}
+			}
+
+			.result-actions button {
+				flex: 1;
+				font-size: clamp(13px, 2vw, 14px);
+				padding: 10px 20px;
+			}
+
+			.enhanced-prompt-box {
+				background: var(--bg-secondary);
+				border: 1px solid var(--border-primary);
+				border-left: 3px solid var(--border-secondary);
+				border-radius: var(--radius-sm);
+				padding: var(--spacing-md);
+				margin-bottom: var(--spacing-md);
+			}
+
+			.enhanced-prompt-label {
+				font-size: clamp(11px, 2vw, 12px);
+				font-weight: 600;
+				color: var(--text-secondary);
+				text-transform: uppercase;
+				letter-spacing: 0.05em;
+				margin-bottom: var(--spacing-xs);
+			}
+
+			.enhanced-prompt-text {
+				font-size: clamp(13px, 2.5vw, 14px);
+				color: var(--text-primary);
+				line-height: 1.6;
+				word-wrap: break-word;
+			}
+
+			.alert {
+				padding: var(--spacing-md);
+				border-radius: var(--radius-sm);
+				margin-bottom: var(--spacing-md);
+				font-size: clamp(13px, 2.5vw, 14px);
+				line-height: 1.5;
+				display: flex;
+				align-items: start;
+				gap: var(--spacing-sm);
+			}
+
+			.alert-icon {
+				flex-shrink: 0;
+				margin-top: 2px;
+				width: 20px;
+				height: 20px;
+			}
+
+			.alert-content {
+				flex: 1;
+				min-width: 0;
+			}
+
+			.alert-error {
+				background: rgba(255, 68, 68, 0.1);
+				border: 1px solid rgba(255, 68, 68, 0.3);
+				color: var(--error);
+			}
+
+			.alert-warning {
+				background: rgba(255, 170, 68, 0.1);
+				border: 1px solid rgba(255, 170, 68, 0.3);
+				color: var(--warning);
+			}
+
+			footer {
+				margin-top: clamp(40px, 8vw, 64px);
+				padding: var(--spacing-lg) clamp(16px, 4vw, 20px);
+				text-align: center;
+				font-size: clamp(12px, 2vw, 13px);
+				color: var(--text-tertiary);
+				border-top: 1px solid var(--border-primary);
+			}
+
+			footer a {
+				color: var(--text-secondary);
+				text-decoration: none;
+				transition: color 0.2s ease;
+			}
+
+			footer a:hover {
+				color: var(--text-primary);
+			}
+
+			/* Touch target improvements for mobile */
+			@media (max-width: 639px) {
+				button,
+				.file-input-box,
+				.checkbox-label {
+					min-height: 44px;
+				}
+			}
+
+			/* Focus styles for accessibility */
+			*:focus-visible {
+				outline: 2px solid var(--accent);
+				outline-offset: 2px;
+			}
+
+			/* Smooth scrolling */
+			html {
+				scroll-behavior: smooth;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<header>
+				<h1>FLUX-2 Image Generator</h1>
+				<p class="subtitle">Professional AI image generation powered by Cloudflare Workers AI</p>
+			</header>
+
+			<form id="generatorForm" class="form-section">
+				<div class="input-group">
+					<label for="prompt">Prompt</label>
+					<textarea
+						id="prompt"
+						name="prompt"
+						placeholder="Describe the image you want to generate..."
+						required
+						maxlength="2000"
+						aria-describedby="promptHint"
+					></textarea>
+				</div>
+
+				<div class="input-group">
+					<label class="checkbox-label">
+						<input type="checkbox" id="enhancePrompt" name="enhancePrompt" checked />
+						<span>Enhance prompt with AI (Llama 3.2)</span>
+					</label>
+					<p class="file-hint">Automatically improves lighting, composition, and visual details while preserving your core subject.</p>
+				</div>
+
+				<div class="input-group">
+					<label>Reference Images (Optional)</label>
+					<div class="file-input-grid" id="imageInputs"></div>
+					<p class="file-hint">PNG images only. Maximum 4 images. Used for style transfer and composition reference.</p>
+				</div>
+
+				<div class="button-group">
+					<button type="submit" id="generateBtn" aria-live="polite">
+						<span id="btnText">Generate Image</span>
+					</button>
+					<button type="button" class="secondary" id="clearBtn">Clear All</button>
+				</div>
+			</form>
+
+			<div id="resultSection" class="result-section" style="display: none" role="region" aria-live="polite"></div>
+		</div>
+
+		<footer>
+			<p>
+				Powered by <a href="https://developers.cloudflare.com/workers-ai/" target="_blank" rel="noopener">Cloudflare Workers AI</a> •
+				FLUX-2-dev by Black Forest Labs
+			</p>
+		</footer>
+
+		<script>
+			const form = document.getElementById('generatorForm');
+			const promptInput = document.getElementById('prompt');
+			const enhancePromptCheckbox = document.getElementById('enhancePrompt');
+			const generateBtn = document.getElementById('generateBtn');
+			const btnText = document.getElementById('btnText');
+			const clearBtn = document.getElementById('clearBtn');
+			const resultSection = document.getElementById('resultSection');
+			const imageInputsDiv = document.getElementById('imageInputs');
+
+			const state = {
+				images: [null, null, null, null],
+				generating: false,
+				lastResult: null,
+			};
+
+			function renderImageInputs() {
+				imageInputsDiv.innerHTML = '';
+
+				for (let i = 0; i < 4; i++) {
+					const box = document.createElement('div');
+					box.className = 'file-input-box';
+					if (state.images[i]) box.classList.add('has-image');
+
+					const input = document.createElement('input');
+					input.type = 'file';
+					input.accept = 'image/png';
+					input.id = `image-input-${i}`;
+					input.setAttribute('aria-label', `Reference image ${i + 1}`);
+					input.onchange = (e) => handleImageSelect(i, e);
+
+					if (state.images[i]) {
+						const img = document.createElement('img');
+						img.src = URL.createObjectURL(state.images[i]);
+						img.alt = `Reference image ${i + 1}`;
+						box.appendChild(img);
+
+						const removeBtn = document.createElement('button');
+						removeBtn.className = 'file-input-remove';
+						removeBtn.innerHTML = '×';
+						removeBtn.type = 'button';
+						removeBtn.setAttribute('aria-label', `Remove reference image ${i + 1}`);
+						removeBtn.onclick = (e) => {
+							e.stopPropagation();
+							URL.revokeObjectURL(img.src);
+							state.images[i] = null;
+							renderImageInputs();
+						};
+						box.appendChild(removeBtn);
+					} else {
+						const placeholder = document.createElement('div');
+						placeholder.className = 'file-input-placeholder';
+						placeholder.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <path d="M21 15l-5-5L5 21"/>
+            </svg>
+            <span>Image ${i + 1}</span>
+          `;
+						box.appendChild(placeholder);
+					}
+
+					box.appendChild(input);
+					box.onclick = (e) => {
+						if (e.target === box || e.target.closest('.file-input-placeholder')) {
+							input.click();
+						}
+					};
+
+					imageInputsDiv.appendChild(box);
+				}
+			}
+
+			function handleImageSelect(index, e) {
+				const file = e.target.files?.[0];
+				if (!file) return;
+
+				if (file.type !== 'image/png') {
+					showError('Only PNG images are supported');
+					return;
+				}
+
+				if (file.size > 10 * 1024 * 1024) {
+					showError('Image size must be under 10MB');
+					return;
+				}
+
+				state.images[index] = file;
+				renderImageInputs();
+			}
+
+			function showError(message, code = null) {
+				resultSection.style.display = 'block';
+				resultSection.innerHTML = `
+        <div class="alert alert-error" role="alert">
+          <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <div class="alert-content">
+            <strong>${escapeHtml(message)}</strong>
+            ${code ? `<div style="margin-top: 4px; opacity: 0.7; font-size: 12px;">Error code: ${escapeHtml(code)}</div>` : ''}
+          </div>
+        </div>
+      `;
+				resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+			}
+
+			async function downloadImage(base64Data) {
+				try {
+					const link = document.createElement('a');
+					link.href = `data:image/png;base64,${base64Data}`;
+					link.download = `flux-generated-${Date.now()}.png`;
+					link.click();
+				} catch (err) {
+					console.error('Download failed:', err);
+					showError('Failed to download image');
+				}
+			}
+
+			function copyToClipboard(text) {
+				navigator.clipboard
+					.writeText(text)
+					.then(() => {
+						const btn = event.target.closest('button');
+						const originalText = btn.innerHTML;
+						btn.innerHTML = '✓ Copied';
+						setTimeout(() => {
+							btn.innerHTML = originalText;
+						}, 2000);
+					})
+					.catch(() => {
+						showError('Failed to copy to clipboard');
+					});
+			}
+
+			form.onsubmit = async (e) => {
+				e.preventDefault();
+
+				if (state.generating) return;
+
+				const prompt = promptInput.value.trim();
+				if (!prompt) {
+					showError('Please enter a prompt');
+					promptInput.focus();
+					return;
+				}
+
+				state.generating = true;
+				generateBtn.disabled = true;
+				btnText.textContent = 'Generating...';
+				generateBtn.insertBefore(Object.assign(document.createElement('div'), { className: 'spinner' }), btnText);
+				resultSection.style.display = 'none';
+
+				try {
+					const formData = new FormData();
+					formData.append('prompt', prompt);
+					formData.append('enhance', enhancePromptCheckbox.checked ? 'true' : 'false');
+
+					state.images.forEach((img, i) => {
+						if (img) formData.append(`image_${i}`, img);
+					});
+
+					const response = await fetch('/generate', {
+						method: 'POST',
+						body: formData,
+					});
+
+					const data = await response.json();
+
+					if (!response.ok || !data.success) {
+						throw new Error(data.error || 'Generation failed');
+					}
+
+					state.lastResult = data;
+					displayResult(data);
+				} catch (err) {
+					console.error('Generation error:', err);
+					showError(err.message, err.code);
+				} finally {
+					state.generating = false;
+					generateBtn.disabled = false;
+					btnText.textContent = 'Generate Image';
+					const spinner = generateBtn.querySelector('.spinner');
+					if (spinner) spinner.remove();
+				}
+			};
+
+			function displayResult(data) {
+				resultSection.style.display = 'block';
+				resultSection.innerHTML = '';
+
+				if (data.enhancedPrompt) {
+					const enhancedBox = document.createElement('div');
+					enhancedBox.className = 'enhanced-prompt-box';
+					enhancedBox.innerHTML = `
+          <div class="enhanced-prompt-label">Enhanced Prompt</div>
+          <div class="enhanced-prompt-text">${escapeHtml(data.enhancedPrompt)}</div>
+        `;
+					resultSection.appendChild(enhancedBox);
+				}
+
+				const imageWrapper = document.createElement('div');
+				imageWrapper.className = 'result-image-wrapper';
+
+				const img = document.createElement('img');
+				img.src = `data:image/png;base64,${data.image}`;
+				img.alt = 'Generated image';
+				img.className = 'result-image';
+
+				const actions = document.createElement('div');
+				actions.className = 'result-actions';
+
+				const downloadBtn = document.createElement('button');
+				downloadBtn.type = 'button';
+				downloadBtn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+        </svg>
+        Download
+      `;
+				downloadBtn.onclick = () => downloadImage(data.image);
+
+				actions.appendChild(downloadBtn);
+
+				if (data.enhancedPrompt) {
+					const copyBtn = document.createElement('button');
+					copyBtn.type = 'button';
+					copyBtn.className = 'secondary';
+					copyBtn.innerHTML = 'Copy Prompt';
+					copyBtn.onclick = () => copyToClipboard(data.enhancedPrompt);
+					actions.appendChild(copyBtn);
+				}
+
+				imageWrapper.appendChild(img);
+				imageWrapper.appendChild(actions);
+				resultSection.appendChild(imageWrapper);
+				resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+			}
+
+			function escapeHtml(text) {
+				const div = document.createElement('div');
+				div.textContent = text;
+				return div.innerHTML;
+			}
+
+			clearBtn.onclick = () => {
+				if (confirm('Clear all inputs and results?')) {
+					promptInput.value = '';
+					state.images.forEach((img, i) => {
+						if (img) URL.revokeObjectURL(URL.createObjectURL(img));
+					});
+					state.images = [null, null, null, null];
+					renderImageInputs();
+					resultSection.style.display = 'none';
+					promptInput.focus();
+				}
+			};
+
+			// Make functions globally accessible
+			window.downloadImage = downloadImage;
+			window.copyToClipboard = copyToClipboard;
+
+			// Initialize
+			renderImageInputs();
+			promptInput.focus();
+		</script>
+	</body>
+</html>
