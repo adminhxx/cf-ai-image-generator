@@ -18,11 +18,5 @@
 	"ai": {
 		"binding": "AI"
 	},
-	"workers_dev": false,
-	"routes": [
-		{
-			"pattern": "img.automatic-demo.com",
-			"custom_domain": true
-		}
-	]
+	"workers_dev": false
 }
